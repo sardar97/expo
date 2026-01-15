@@ -10,7 +10,7 @@ import {
   RUNTIME_WORKERD,
   setupServer,
 } from '../../utils/runtime';
-import { findProjectFiles } from '../utils';
+import { findProjectFiles, getHtml } from '../utils';
 
 runExportSideEffects();
 
@@ -119,6 +119,32 @@ describe.each(
     const data = await response.json();
 
     expect(new URL(data.url).pathname).toBe('/request');
+    expect(data.method).toBe('GET');
+    expect(Array.isArray(data.headers)).toBe(true);
+  });
+
+  it.each([
+    {
+      name: 'page',
+      url: '/request?foo=bar',
+      getData: async (response: Response) => {
+        const html = getHtml(await response.text());
+        return JSON.parse(html.querySelector('[data-testid="loader-result"]')!.textContent);
+      },
+    },
+    {
+      name: 'loader endpoint',
+      url: '/_expo/loaders/request?foo=bar',
+      getData: (response: Response) => {
+        return response.json();
+      },
+    },
+  ])('$name $url receives search params', async ({ getData, url }) => {
+    const response = await server.fetchAsync(url);
+    expect(response.status).toBe(200);
+    const data = await getData(response);
+
+    expect(data.url).toContain('/request?foo=bar');
     expect(data.method).toBe('GET');
     expect(Array.isArray(data.headers)).toBe(true);
   });
